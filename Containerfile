@@ -1,4 +1,4 @@
-FROM fedora:42
+FROM quay.io/fedora/fedora:latest
 
 LABEL description="Development environment for krunner-bazaar KDE plugin"
 LABEL maintainer="Adam Fidel <adam@fidel.cloud>"
@@ -16,6 +16,7 @@ RUN dnf5 update -y && \
         rpmdevtools \
         # KDE Frameworks 6 development packages
         extra-cmake-modules \
+        kf6-kconfig-devel \
         kf6-krunner-devel \
         kf6-ki18n-devel \
         kf6-kcoreaddons-devel \
