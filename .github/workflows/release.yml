@@ -124,7 +124,7 @@ jobs:
         EOF
     
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
+      uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
       with:
         tag_name: ${{ steps.vars.outputs.tag }}
         name: ${{ steps.vars.outputs.release_name }}
