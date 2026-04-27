@@ -22,4 +22,6 @@ ki18n_install(po)
 
 add_subdirectory(src)
 
+install(FILES io.github.ublueos.bazaarrunner.desktop DESTINATION ${KDE_INSTALL_DATAROOTDIR}/krunner/dbusplugins)
+
 feature_summary(WHAT ALL INCLUDE_QUIET_PACKAGES FATAL_ON_MISSING_REQUIRED_PACKAGES)

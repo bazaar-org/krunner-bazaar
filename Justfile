@@ -32,6 +32,21 @@ build: build-container
             make -j$(nproc)
         '
 
+build-flatpak:
+  #!/usr/bin/env bash
+  flatpak run org.flatpak.Builder \
+    --force-clean \
+    --install \
+    --install-deps-from=flathub \
+    --user \
+    --verbose \
+    --ccache \
+    --disable-updates \
+    --keep-build-dirs \
+    build \
+    ./io.github.ublueos.bazaarrunner.yaml
+
+
 install: build
     #!/usr/bin/env bash
     set -euo pipefail
