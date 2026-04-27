@@ -1,0 +1,29 @@
+# french bazaarrunner translations.
+# Copyright (C) 2025 bazaarrunner contributors
+# This file is distributed under the same license as the bazaarrunner package.
+#
+# SPDX-FileCopyrightText: 2025 Mimolet <theMimolet@proton.me>
+msgid ""
+msgstr ""
+"Project-Id-Version: bazaarrunner \n"
+"Report-Msgid-Bugs-To: https://github.com/ublue-os/krunner-bazaar/issues \n"
+"POT-Creation-Date: 2025-07-20 06:02+0000\n"
+"PO-Revision-Date: 2025-12-19 14:25+0100\n"
+"Last-Translator: Mimolet <theMimolet@proton.me>\n"
+"Language-Team: French <kde-francophone@kde.org>\n"
+"Language: fr_FR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Lokalize 25.12.0\n"
+
+#: src/bazaarrunner.cpp:30
+#, kde-format
+msgid "Search for Flatpak applications in Bazaar"
+msgstr "Rechercher des applications Flatpak dans Bazaar"
+
+#: src/bazaarrunner.cpp:54
+#, kde-format
+msgid "Install %1"
+msgstr "Installer %1"
