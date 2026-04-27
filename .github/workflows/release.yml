@@ -104,14 +104,14 @@ jobs:
         cat > release_notes.md << EOF        
         KDE KRunner plugin for searching Flatpak applications via Bazaar.
         
-        ## Installation (Fedora 42)
+        ## Installation (Fedora 43)
                         
         \`\`\`bash
         # For the main plugin
-        sudo dnf install krunner-bazaar-${{ steps.vars.outputs.version }}-1.fc42.x86_64.rpm
+        sudo dnf install krunner-bazaar-${{ steps.vars.outputs.version }}-1.fc43.x86_64.rpm
         
         # For CLI tools (optional)
-        sudo dnf install krunner-bazaar-tools-${{ steps.vars.outputs.version }}-1.fc42.x86_64.rpm
+        sudo dnf install krunner-bazaar-tools-${{ steps.vars.outputs.version }}-1.fc43.x86_64.rpm
         \`\`\`
       
         ## Verification
