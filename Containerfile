@@ -1,4 +1,4 @@
-FROM quay.io/fedora/fedora:latest
+FROM quay.io/fedora/fedora:latest@sha256:b4521566ef4574f58285361fbe2d0453a054392fbd996b39de7559a7b15079dc
 
 LABEL description="Development environment for krunner-bazaar KDE plugin"
 LABEL maintainer="Adam Fidel <adam@fidel.cloud>"
