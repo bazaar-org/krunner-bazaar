@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Krunner-Bazaar Flatpak
+X-KDE-ServiceTypes=Plasma/Runner
+Comment=this is not using the json file provided by krunner-bazaar, metadata is broken on every KDE and non KDE app btw
+Type=Service
+Icon=io.github.kolunmi.Bazaar
+X-KDE-ServiceTypes=Plasma/Runner
+X-KDE-PluginInfo-Name=bazaarrunner
+X-KDE-PluginInfo-EnabledByDefault=true
+X-Plasma-API=DBus
+X-Plasma-DBusRunner-Service=io.github.kolunmi.Bazaar
+X-Plasma-DBusRunner-Path=/io/github/kolunmi/Bazaar/SearchProvider
