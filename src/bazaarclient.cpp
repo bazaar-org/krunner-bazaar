@@ -1,7 +1,7 @@
 #include "bazaarclient.h"
 
 #include <QDBusConnection>
-#include <QDBusReply>
+#include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusArgument>
 #include <QDBusVariant>
@@ -13,9 +13,14 @@ using namespace Qt::Literals::StringLiterals;
 // TODO: make this configurable in a KCM
 static constexpr int kMaxNumResults = 6;
 
-QString kDBusServiceName = QStringLiteral("io.github.kolunmi.Bazaar");
-QString kDBusServicePath = QStringLiteral("/io/github/kolunmi/Bazaar/SearchProvider");
-QString kDBusServiceInterface = QStringLiteral("org.gnome.Shell.SearchProvider2");
+static const QStringList kDBusServiceNames = {
+    "io.github.kolunmi.Bazaar.SearchProvider"_L1,
+    "io.github.kolunmi.Bazaar"_L1,
+};
+
+static const QString kDBusServicePath = "/io/github/kolunmi/Bazaar/SearchProvider"_L1;
+static const QString kDBusServiceInterface = "org.gnome.Shell.SearchProvider2"_L1;
+static const QString kNoProviderError = "No Bazaar search provider found on the session bus"_L1;
 
 struct ResultMetas {
     QList<QVariantMap> metas;
@@ -64,62 +69,87 @@ const QDBusArgument& operator>>(const QDBusArgument& arg, ResultMetas& metas)
     return arg;
 }
 
-BazaarClient::BazaarClient() {
-    m_bazaarInterface = std::make_unique<QDBusInterface>(
-        kDBusServiceName,
-        kDBusServicePath,
-        kDBusServiceInterface,
-        QDBusConnection::sessionBus()
-    );
+namespace {
 
-    if (!m_bazaarInterface->isValid()) {
-        m_lastError = m_bazaarInterface->lastError().message();
-        qWarning() << "BazaarClient: failed to connect to Bazaar D-Bus service " << kDBusServiceName << ": " << m_lastError;
-        qWarning() << "BazaarClient: Make sure Bazaar is running and the search provider is enabled.";
+// Pick the first candidate bus name that is registered or activatable
+std::optional<QString> resolveServiceName()
+{
+    QDBusConnectionInterface *bus = QDBusConnection::sessionBus().interface();
+    if (!bus) {
+        qWarning() << "BazaarClient: no session bus available";
+        return std::nullopt;
+    }
+
+    const QStringList registered = bus->registeredServiceNames().value();
+    const QStringList activatable = bus->activatableServiceNames().value();
+
+    for (const QString &candidate : kDBusServiceNames) {
+        if (registered.contains(candidate) || activatable.contains(candidate)) {
+            return candidate;
+        }
+    }
+
+    return std::nullopt;
+}
+
+QDBusMessage callProvider(const QString &serviceName, const QString &method, const QVariantList &args)
+{
+    QDBusMessage call = QDBusMessage::createMethodCall(serviceName, kDBusServicePath, kDBusServiceInterface, method);
+    call.setArguments(args);
+    return QDBusConnection::sessionBus().call(call);
+}
+
+} // namespace
+
+BazaarClient::BazaarClient() {
+    m_serviceName = resolveServiceName();
+
+    if (!m_serviceName) {
+        qWarning() << "BazaarClient: " << kNoProviderError;
+        qWarning() << "BazaarClient: Make sure Bazaar is installed and the search provider is enabled.";
     } else {
-        qDebug() << "BazaarClient: successfully connected to Bazaar D-Bus service " << kDBusServiceName;
-        m_lastError.clear();
+        qDebug() << "BazaarClient: using Bazaar D-Bus service" << *m_serviceName;
     }
 }
 
 bool BazaarClient::isConnected() const {
-    return m_bazaarInterface && m_bazaarInterface->isValid();
+    return m_serviceName.has_value();
 }
 
-QString BazaarClient::lastError() const {
-    return m_lastError;
+std::optional<QString> BazaarClient::serviceName() const {
+    return m_serviceName;
 }
 
-QList<AppSuggestion> BazaarClient::search(const QString &term, const std::function<bool()> &isContextValid) {
-    QList<AppSuggestion> results;
-    
-    if (!isConnected()) {
-        m_lastError = "Not connected to Bazaar D-Bus interface"_L1;
-        qDebug() << "BazaarClient::search:" << m_lastError;
-        return results;
+SearchResult BazaarClient::search(const QString &term, const std::function<bool()> &isContextValid) {
+    SearchResult result;
+
+    if (!m_serviceName) {
+        result.error = kNoProviderError;
+        qDebug() << "BazaarClient::search:" << result.error;
+        return result;
     }
 
     if (term.length() < 2) {
-        m_lastError = "Search term too short (minimum 2 characters)"_L1;
-        return results;
+        result.error = "Search term too short (minimum 2 characters)"_L1;
+        return result;
     }
 
     // Split search term into individual terms
     QStringList terms = term.split(QLatin1Char(' '), Qt::SkipEmptyParts);
 
     if (isContextValid && !isContextValid()) {
-        return results;
+        return result;
     }
 
     // Get initial result set
-    QStringList resultIds = getInitialResultSet(terms);
+    QStringList resultIds = getInitialResultSet(terms, result.error);
     if (resultIds.isEmpty()) {
         qDebug() << "BazaarClient::search: No results returned from Bazaar for query:" << term;
-        return results;
+        return result;
     }
 
     if (isContextValid && !isContextValid()) {
-        return results;
+        return result;
     }
 
     qDebug() << "BazaarClient::search: Bazaar returned" << resultIds.size() << "result IDs (will be truncated to " << kMaxNumResults << ")";
@@ -128,7 +158,7 @@ QList<AppSuggestion> BazaarClient::search(const QString &term, const std::functi
         resultIds = resultIds.mid(0, kMaxNumResults);
     }
 
-    QList<QVariantMap> metas = getResultMetas(resultIds);
+    QList<QVariantMap> metas = getResultMetas(resultIds, result.error);
 
     // Extract metadata for each result
     for (int i = 0; i < resultIds.size() && i < metas.size(); ++i) {
@@ -164,16 +194,15 @@ QList<AppSuggestion> BazaarClient::search(const QString &term, const std::functi
             continue;
         }
 
-        results.append(suggestion);
+        result.apps.append(suggestion);
     }
 
-    return results;
+    return result;
 }
 
 bool BazaarClient::activateResult(const QString &appId, const QStringList &searchTerms) {
-    if (!isConnected()) {
-        m_lastError = "Not connected to Bazaar D-Bus interface"_L1;
-        qWarning() << "BazaarClient::activateResult:" << m_lastError;
+    if (!m_serviceName) {
+        qWarning() << "BazaarClient::activateResult:" << kNoProviderError;
         return false;
     }
 
@@ -181,58 +210,49 @@ bool BazaarClient::activateResult(const QString &appId, const QStringList &searc
 
     uint timestamp = static_cast<uint>(QDateTime::currentSecsSinceEpoch());
 
-    QDBusReply<void> reply = m_bazaarInterface->call(
-        QStringLiteral("ActivateResult"), 
-        appId, 
-        searchTerms, 
-        timestamp
-    );
+    QDBusMessage reply = callProvider(*m_serviceName, "ActivateResult"_L1, {appId, searchTerms, timestamp});
 
-    if (!reply.isValid()) {
-        m_lastError = reply.error().message();
-        qWarning() << "BazaarClient::activateResult: Failed to activate result:" << m_lastError;
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        qWarning() << "BazaarClient::activateResult: Failed to activate result:" << reply.errorMessage();
         return false;
     }
 
     return true;
 }
 
-QStringList BazaarClient::getInitialResultSet(const QStringList &terms) {
-    QDBusReply<QStringList> reply = m_bazaarInterface->call(QStringLiteral("GetInitialResultSet"), terms);
+QStringList BazaarClient::getInitialResultSet(const QStringList &terms, QString &error) {
+    QDBusMessage reply = callProvider(*m_serviceName, "GetInitialResultSet"_L1, {terms});
 
-    if (!reply.isValid()) {
-        m_lastError = reply.error().message();
-        qWarning() << "BazaarClient::getInitialResultSet: Failed to get search results:" << m_lastError;
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        error = reply.errorMessage();
+        qWarning() << "BazaarClient::getInitialResultSet: Failed to get search results:" << error;
         return QStringList();
     }
 
-    return reply.value();
+    if (reply.arguments().isEmpty()) {
+        error = "No arguments in GetInitialResultSet reply"_L1;
+        qWarning() << "BazaarClient::getInitialResultSet:" << error;
+        return QStringList();
+    }
+
+    return reply.arguments().at(0).toStringList();
 }
 
-QList<QVariantMap> BazaarClient::getResultMetas(const QStringList &resultIds) {
+QList<QVariantMap> BazaarClient::getResultMetas(const QStringList &resultIds, QString &error) {
     ResultMetas metas;
         
-    QDBusMessage metaCall = QDBusMessage::createMethodCall(
-        kDBusServiceName,
-        kDBusServicePath,
-        kDBusServiceInterface,
-        QStringLiteral("GetResultMetas")
-    );
-
-    metaCall << resultIds;
-
-    QDBusMessage metaReply = QDBusConnection::sessionBus().call(metaCall);
+    QDBusMessage metaReply = callProvider(*m_serviceName, "GetResultMetas"_L1, {resultIds});
 
     if (metaReply.type() == QDBusMessage::ErrorMessage) {
-        m_lastError = metaReply.errorMessage();
-        qWarning() << "BazaarClient::getResultMetas: Failed to get result metadata:" << m_lastError;
+        error = metaReply.errorMessage();
+        qWarning() << "BazaarClient::getResultMetas: Failed to get result metadata:" << error;
         return {};
     }
 
 
     if (metaReply.arguments().isEmpty()) {
-        m_lastError = "No arguments in GetResultMetas reply"_L1;
-        qWarning() << "BazaarClient::getResultMetas:" << m_lastError;
+        error = "No arguments in GetResultMetas reply"_L1;
+        qWarning() << "BazaarClient::getResultMetas:" << error;
         return {};
     }
 

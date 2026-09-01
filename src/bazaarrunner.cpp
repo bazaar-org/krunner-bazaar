@@ -22,9 +22,9 @@ BazaarRunner::BazaarRunner(QObject *parent, const KPluginMetaData &data)
     setMinLetterCount(2);
     
     if (!m_bazaarClient.isConnected()) {
-        qWarning() << "BazaarRunner: Failed to connect to Bazaar:" << m_bazaarClient.lastError();
+        qWarning() << "BazaarRunner: no Bazaar search provider found on the session bus";
     } else {
-        qDebug() << "BazaarRunner: Successfully initialized Bazaar client";
+        qDebug() << "BazaarRunner: Successfully initialized Bazaar client against" << *m_bazaarClient.serviceName();
     }
 
     addSyntax(QStringLiteral(":q:"), i18n("Search for Flatpak applications in Bazaar"));
@@ -39,12 +39,16 @@ void BazaarRunner::match(KRunner::RunnerContext &context)
         return;
     }
 
-    QList<AppSuggestion> results = m_bazaarClient.search(term, [&context](){
+    const SearchResult result = m_bazaarClient.search(term, [&context](){
         return context.isValid();
     });
 
+    if (!result.error.isEmpty()) {
+        qWarning() << "BazaarRunner::match: search failed:" << result.error;
+    }
+
     int addedMatches = 0;
-    for (const auto &app : results) {
+    for (const auto &app : result.apps) {
         if (!context.isValid()) {
             break;
         }
@@ -80,9 +84,9 @@ void BazaarRunner::run(const KRunner::RunnerContext &context, const KRunner::Que
     
     QStringList terms = context.query().split(QLatin1Char(' '), Qt::SkipEmptyParts);
     bool success = m_bazaarClient.activateResult(appId, terms);
-    
+
     if (!success) {
-        qWarning() << "Failed to activate result in Bazaar:" << m_bazaarClient.lastError();
+        qWarning() << "BazaarRunner::run: Failed to activate result in Bazaar:" << appId;
     } else {
         qDebug() << "Successfully activated result:" << appId << "in Bazaar";
     }

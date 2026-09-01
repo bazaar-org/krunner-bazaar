@@ -11,6 +11,9 @@ using namespace Qt::Literals::StringLiterals;
 
 int main(int argc, char *argv[])
 {
+    // override Fedora's weird logging rules for Qt apps
+    qputenv("QT_FORCE_STDERR_LOGGING", "1");
+
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName("bazaar-dbus-tool"_L1);
     QCoreApplication::setApplicationVersion("1.0"_L1);
@@ -39,23 +42,23 @@ int main(int argc, char *argv[])
 
     if (!client.isConnected()) {
         std::cerr << "Error: Could not connect to Bazaar D-Bus service" << std::endl;
-        std::cerr << "Last error: " << client.lastError().toStdString() << std::endl;
         std::cerr << "Make sure Bazaar is running and the search provider is enabled." << std::endl;
         return 1;
     }
 
-    std::cout << "Successfully connected to Bazaar D-Bus service" << std::endl;
+    std::cout << "Successfully connected to Bazaar D-Bus service " << client.serviceName()->toStdString() << std::endl;
 
     if (parser.isSet(searchOption)) {
         QString query = parser.value(searchOption);
         std::cout << "Searching for: " << query.toStdString() << std::endl;
 
-        QList<AppSuggestion> results = client.search(query);
+        const auto result = client.search(query);
+        const QList<AppSuggestion> &results = result.apps;
 
         if (results.isEmpty()) {
             std::cout << "No results found for query: " << query.toStdString() << std::endl;
-            if (!client.lastError().isEmpty()) {
-                std::cerr << "Error: " << client.lastError().toStdString() << std::endl;
+            if (!result.error.isEmpty()) {
+                std::cerr << "Error: " << result.error.toStdString() << std::endl;
             }
         } else {
             std::cout << "Found " << results.size() << " results:" << std::endl;
@@ -83,7 +86,6 @@ int main(int argc, char *argv[])
             std::cout << "Successfully activated application: " << appId.toStdString() << std::endl;
         } else {
             std::cerr << "Failed to activate application: " << appId.toStdString() << std::endl;
-            std::cerr << "Error: " << client.lastError().toStdString() << std::endl;
         }
     } else {
         std::cout << "Usage examples:" << std::endl;

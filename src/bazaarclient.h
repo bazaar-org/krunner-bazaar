@@ -3,9 +3,8 @@
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
-#include <QDBusInterface>
 #include <functional>
-#include <memory>
+#include <optional>
 
 struct AppSuggestion {
     QString id;
@@ -14,20 +13,24 @@ struct AppSuggestion {
     QString iconName;
 };
 
+struct SearchResult {
+    QList<AppSuggestion> apps;
+    QString error;
+};
+
 class BazaarClient {
 public:
     BazaarClient();
 
     bool isConnected() const;
-    QString lastError() const;
+    std::optional<QString> serviceName() const;
 
-    QList<AppSuggestion> search(const QString &term, const std::function<bool()> &isContextValid = nullptr);
-    bool activateResult(const QString &appId, const QStringList &searchTerms);
+    SearchResult search(const QString &term, const std::function<bool()> &isContextValid = nullptr);
+    [[nodiscard]] bool activateResult(const QString &appId, const QStringList &searchTerms);
 
 private:
-    std::unique_ptr<QDBusInterface> m_bazaarInterface;
-    QString m_lastError;
+    std::optional<QString> m_serviceName;
 
-    QStringList getInitialResultSet(const QStringList &terms);
-    QList<QVariantMap> getResultMetas(const QStringList &resultIds);
+    QStringList getInitialResultSet(const QStringList &terms, QString &error);
+    QList<QVariantMap> getResultMetas(const QStringList &resultIds, QString &error);
 };
