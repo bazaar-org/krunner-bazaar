@@ -52,6 +52,14 @@ install: build
     sudo cp -v ./build/prefix/usr/lib64/qt6/plugins/kf6/krunner/bazaarrunner.so /usr/lib64/qt6/plugins/kf6/krunner/bazaarrunner.so
     sudo cp -v ./build/prefix/usr/share/locale/es/LC_MESSAGES/plasma_runner_bazaarrunner.mo /usr/share/locale/es/LC_MESSAGES/plasma_runner_bazaarrunner.mo
 
+# This should work on Aurora/Bazzite
+smoke: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    ./build/bin/bazaar-dbus-tool --search "KolourPaint"
+    ./build/bin/bazaar-dbus-tool --activate org.kde.kolourpaint
+
 
 gdb:
     gdb -ex "run" -ex "bt" --args ./build/bin/bazaar-dbus-tool -s spotify
