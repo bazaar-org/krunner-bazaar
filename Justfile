@@ -32,25 +32,13 @@ build: build-container
             make -j$(nproc)
         '
 
-install: build
+# This should work on Aurora/Bazzite
+smoke: build
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # Install using the development container with host system access
-    podman run --rm \
-        --userns=keep-id \
-        --volume "$(pwd):/workspace:Z" \
-        --workdir /workspace/build \
-        {{image_name}} \
-        bash -c '
-            # Install to host system
-            mkdir -p /workspace/build/prefix
-            make install DESTDIR=/workspace/build/prefix
-        '
-    tree build/prefix
-    sudo ostree admin unlock || true
-    sudo cp -v ./build/prefix/usr/lib64/qt6/plugins/kf6/krunner/bazaarrunner.so /usr/lib64/qt6/plugins/kf6/krunner/bazaarrunner.so
-    sudo cp -v ./build/prefix/usr/share/locale/es/LC_MESSAGES/plasma_runner_bazaarrunner.mo /usr/share/locale/es/LC_MESSAGES/plasma_runner_bazaarrunner.mo
+    ./build/bin/bazaar-dbus-tool --search "KolourPaint"
+    ./build/bin/bazaar-dbus-tool --activate org.kde.kolourpaint
 
 
 gdb:
