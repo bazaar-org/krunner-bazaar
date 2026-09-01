@@ -25,7 +25,7 @@ public:
     bool isConnected() const;
     std::optional<QString> serviceName() const;
 
-    SearchResult search(const QString &term, const std::function<bool()> &isContextValid = nullptr);
+    [[nodiscard]] SearchResult search(const QString &term, const std::function<bool()> &isContextValid = nullptr);
     [[nodiscard]] bool activateResult(const QString &appId, const QStringList &searchTerms);
 
 private:
